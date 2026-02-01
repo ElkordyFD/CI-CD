@@ -1,0 +1,54 @@
+name: CI with Jira
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  test-and-report:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run tests (fake for now)
+      run: |
+        echo "Running tests..."
+        exit 1
+
+    - name: Create Jira bug
+      if: failure()
+      env:
+        # يفضل تعريفهم كـ env لضمان التعامل مع الرموز الخاصة في التوكن بشكل سليم
+        JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
+      run: |
+        curl -X POST \
+          -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
+          -H "Content-Type: application/json" \
+          --data '{
+            "fields": {
+              "project": { "key": "'"$JIRA_PROJECT_KEY"'" },
+              "summary": "CI Failure - Automated Bug",
+              "issuetype": { "name": "Bug" },
+              "description": {
+                "type": "doc",
+                "version": 1,
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "Build failed in GitHub Actions. Review logs at: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }' \
+          "$JIRA_BASE_URL/rest/api/3/issue"
